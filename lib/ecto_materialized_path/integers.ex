@@ -1,4 +1,4 @@
-defmodule EctoMaterializedPath.Path do
+defmodule EctoMaterializedPath.Integers do
   @behaviour Ecto.Type
 
   @moduledoc """
@@ -21,5 +21,5 @@ defmodule EctoMaterializedPath.Path do
 
   def load(value), do: { :ok, value }
 
-  def type, do: EctoMaterializedPath.Path
+  def type, do: EctoMaterializedPath.Integers
 end

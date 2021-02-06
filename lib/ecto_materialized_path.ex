@@ -22,7 +22,7 @@ defmodule EctoMaterializedPath do
         depth
       ) |> Enum.each(fn(function_name) ->
         def unquote(:"#{method_namespace}#{function_name}")(schema = %{ __struct__: __MODULE__ }) do
-          path = Map.get(schema, unquote(:"#{column_name}"))
+          path = Map.get(schema, unquote(:"#{column_name}"), [])
           apply(EctoMaterializedPath, unquote(:"#{function_name}"), [schema, path])
         end
       end)
@@ -54,11 +54,14 @@ defmodule EctoMaterializedPath do
         EctoMaterializedPath.make_child_of(Ecto.Changeset.change(schema, %{}), parent, unquote(:"#{column_name}"))
       end
 
-      def unquote(:"#{method_namespace}where_depth")(__MODULE__, depth_params) do
-        EctoMaterializedPath.where_depth(__MODULE__, depth_params, unquote(:"#{column_name}"))
-      end
-      def unquote(:"#{method_namespace}where_depth")(query = %Ecto.Query{ from: { _, __MODULE__ } }, depth_params) when is_list(depth_params) do
+      def unquote(:"#{method_namespace}where_depth")(query = %Ecto.Query{ from: { _, __MODULE__ } }, depth_params) do
         EctoMaterializedPath.where_depth(query, depth_params, unquote(:"#{column_name}"))
+      end
+      def unquote(:"#{method_namespace}where_depth")(query = %Ecto.Query{}, depth_params) do
+        EctoMaterializedPath.where_depth(query, depth_params, unquote(:"#{column_name}"))
+      end
+      def unquote(:"#{method_namespace}where_depth")(schema = %{ __struct__: __MODULE__ }, depth_params) do
+        EctoMaterializedPath.where_depth(schema, depth_params, unquote(:"#{column_name}"))
       end
 
       def unquote(:"#{method_namespace}arrange")(structs_list) when is_list(structs_list), do: EctoMaterializedPath.arrange(structs_list, unquote(:"#{column_name}"))
@@ -67,6 +70,7 @@ defmodule EctoMaterializedPath do
   end
 
   require Ecto.Query
+  require Logger
 
   def parent(schema = %{ __struct__: struct, }, path) do
     parent_id = parent_id(schema, path)
@@ -80,10 +84,10 @@ defmodule EctoMaterializedPath do
     Ecto.Query.from(q in struct, where: q.id in ^root_id, limit: 1)
   end
 
-  def root_id(%{ id: id }, []) when is_integer(id), do: id
+  def root_id(%{ id: id }, []) when is_integer(id) or is_binary(id), do: id
   def root_id(_, path) when is_list(path), do: path |> List.first()
 
-  def root?(%{ id: id }, []) when is_integer(id), do: true
+  def root?(%{ id: id }, []) when is_integer(id) or is_binary(id), do: true
   def root?(_, path) when is_list(path), do: false
 
   def ancestors(schema = %{ __struct__: struct }, path) when is_list(path) do
@@ -100,31 +104,31 @@ defmodule EctoMaterializedPath do
   end
 
   def children(schema = %{ __struct__: module, id: id }, column_name) do
-    path = Map.get(schema, column_name) ++ [id]
+    path = Map.get(schema, column_name, []) ++ [id]
     Ecto.Query.from(q in module, where: fragment("(?) = ?", field(q, ^column_name), ^path))
   end
 
   def siblings(schema = %{ __struct__: module }, column_name) do
-    path = Map.get(schema, column_name)
+    path = Map.get(schema, column_name, [])
     Ecto.Query.from(q in module, where: fragment("? = ?", field(q, ^column_name), ^path))
   end
 
   def descendants(schema = %{ __struct__: module, id: id }, column_name) do
-    path = Map.get(schema, column_name) ++ [id]
+    path = Map.get(schema, column_name, []) ++ [id]
     Ecto.Query.from(q in module, where: fragment("? @> ?", field(q, ^column_name), ^path))
   end
 
   def subtree(schema = %{ __struct__: module, id: id }, column_name) do
-    path = Map.get(schema, column_name) ++ [id]
+    path = Map.get(schema, column_name, []) ++ [id]
     Ecto.Query.from(q in module, where: fragment("? @> ?", field(q, ^column_name), ^path) or q.id == ^id)
   end
 
   def depth(_, path) when is_list(path), do: length(path)
 
-  def where_depth(query = %Ecto.Query{}, depth_options, column_name) do
+  def where_depth(query = %Ecto.Query{}, depth_options, column_name) when is_list(depth_options) do
     do_where_depth(query, depth_options, column_name)
   end
-  def where_depth(module, depth_options, column_name) do
+  def where_depth(module, depth_options, column_name) when is_list(depth_options) do
     Ecto.Query.from(q in module)
     |> do_where_depth(depth_options, column_name)
   end
@@ -148,14 +152,14 @@ defmodule EctoMaterializedPath do
     raise ArgumentError, "invalid arguments"
   end
 
-  def build_child(schema = %{ __struct__: struct, id: id }, column_name) when is_integer(id) and is_atom(column_name) do
-    new_path = Map.get(schema, column_name) ++ [id]
+  def build_child(schema = %{ __struct__: struct, id: id }, column_name) when (is_integer(id) or is_binary(id)) and is_atom(column_name) do
+    new_path = Map.get(schema, column_name, []) ++ [id]
 
     %{ __struct__: struct } |> Map.put(column_name, new_path)
   end
 
   def make_child_of(changeset, parent = %{ id: id }, column_name) do
-    new_path = Map.get(parent, column_name) ++ [id]
+    new_path = Map.get(parent, column_name, []) ++ [id]
 
     changeset |> Ecto.Changeset.change(%{ :"#{column_name}" => new_path })
   end
@@ -177,7 +181,7 @@ defmodule EctoMaterializedPath do
 
   defp nodes_by_depth_map([], processed_map, _), do: processed_map
   defp nodes_by_depth_map([node | tail], before_node_processed_map, column_name) do
-    path = Map.get(node, column_name)
+    path = Map.get(node, column_name, [])
     node_depth = depth(node, path)
 
     node_at_depth = Map.get(before_node_processed_map, node_depth, []) ++ [node]
@@ -191,7 +195,7 @@ defmodule EctoMaterializedPath do
 
     { node_children, node_children_count } = nodes_depth_map
       |> Map.get(next_depth_level, [])
-      |> Enum.filter(fn(possible_children) -> Map.get(possible_children, column_name) |> List.last() == node.id end)
+      |> Enum.filter(fn(possible_children) -> Map.get(possible_children, column_name, []) |> List.last() == node.id end)
       |> Enum.reduce({ [], total_count }, &extract_to_resulting_structure(&1, &2, nodes_depth_map, next_depth_level, column_name))
 
     { list ++ [{ node, node_children }], length(node_children) + node_children_count }
@@ -206,7 +210,7 @@ defmodule EctoMaterializedPath do
 
       missing_node_ids = nodes_list_ids -- tree_node_ids
 
-      raise ArgumentError, "nodes with ids [#{Enum.join(missing_node_ids, ", ")}] can't be arranged"
+      Logger.error("nodes with ids [#{Enum.join(missing_node_ids, ", ")}] can't be arranged")
     end
   end
 

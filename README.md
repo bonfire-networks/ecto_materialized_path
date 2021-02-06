@@ -30,7 +30,7 @@ defmodule Comment do
   use EctoMaterializedPath
 
   schema "comments" do
-    field :path, EctoMaterializedPath.Path, default: [] # default is important here
+    field :path, EctoMaterializedPath.Integers, default: [] # default is important here
   end
 end
 ```

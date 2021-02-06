@@ -9,7 +9,7 @@ defmodule EctoMaterializedPathTest do
       column_name: "path"
 
     schema "comments" do
-      field :path, EctoMaterializedPath.Path, default: []
+      field :path, EctoMaterializedPath.Integers, default: []
     end
   end
 
@@ -393,7 +393,7 @@ defmodule EctoMaterializedPathTest do
         column_name: "another"
 
       schema "another_comments" do
-        field :another, EctoMaterializedPath.Path
+        field :another, EctoMaterializedPath.Integers
       end
     end
 
@@ -411,7 +411,7 @@ defmodule EctoMaterializedPathTest do
         namespace: "alex"
 
       schema "namespaced_comments" do
-        field :path, EctoMaterializedPath.Path
+        field :path, EctoMaterializedPath.Integers
       end
     end
 
