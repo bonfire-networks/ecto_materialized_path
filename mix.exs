@@ -41,7 +41,7 @@ defmodule EctoMaterializedPath.Mixfile do
      {:pointers, "~> 0.5.1"},
 
      {:ex_machina, "~> 1.0.0", only: :test},
-     {:ex_doc, ">= 0.0.0", only: :dev},
+     {:ex_doc, ">= 0.0.0", only: :dev}
     ]
   end
 
