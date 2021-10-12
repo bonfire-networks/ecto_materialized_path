@@ -31,9 +31,9 @@ defmodule EctoMaterializedPath.Mixfile do
     ]
   end
 
-  def app_list(:test), do: app_list() ++ [:ecto, :ex_machina]
+  def app_list(:test), do: app_list() ++ [:ecto, :ex_machina, :pointers_ulid]
   def app_list(_), do: app_list()
-  def app_list, do: [:logger]
+  def app_list, do: [:logger, :pointers_ulid, :ecto]
 
   defp deps do
     [
