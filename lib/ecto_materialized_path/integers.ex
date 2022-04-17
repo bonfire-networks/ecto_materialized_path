@@ -17,7 +17,7 @@ defmodule EctoMaterializedPath.Integers do
   end
   def cast(_), do: :error
 
-  def dump(value), do: { :ok, value }
+  def info(value), do: { :ok, value }
 
   def load(value), do: { :ok, value }
 
