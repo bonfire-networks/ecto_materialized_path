@@ -210,7 +210,7 @@ defmodule EctoMaterializedPath do
 
       missing_node_ids = nodes_list_ids -- tree_node_ids
 
-      Logger.error("EctoMaterializedPath: there may be a mising or invalid `path`, resulting in a different count of items (#{inspect nodes_count} vs #{inspect tree_nodes_count}) meaning those with ids [#{Enum.join(missing_node_ids, ", ")}] can't be arranged")
+      Logger.error("EctoMaterializedPath: there may be a mising or invalid `path`, resulting in a different count of items (received #{inspect nodes_count} nodes but the arranged tree contains #{inspect tree_nodes_count}) meaning those with ids [#{Enum.join(missing_node_ids, ", ")}] were not arranged")
     end
   end
 
