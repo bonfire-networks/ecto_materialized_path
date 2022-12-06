@@ -38,7 +38,7 @@ defmodule EctoMaterializedPath.Mixfile do
   defp deps do
     [
      {:ecto, ">= 2.0.0"},
-     {:pointers_ulid, "~> 0.2.2"},
+     {:pointers_ulid, git: "https://github.com/bonfire-networks/pointers_ulid", branch: "main"},
      {:ex_machina, "~> 1.0.0", only: :test},
      {:ex_doc, ">= 0.0.0", only: :dev}
     ]
