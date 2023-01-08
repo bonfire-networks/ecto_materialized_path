@@ -1,4 +1,6 @@
 defmodule EctoMaterializedPath do
+  import Untangle 
+
   defmacro __using__(opts) do
     column_name = Keyword.get(opts, :column_name, "path")
     namespace = Keyword.get(opts, :namespace, nil)
@@ -175,8 +177,7 @@ defmodule EctoMaterializedPath do
     { tree, tree_nodes_count } = Enum.reduce(initial_list, { [], length(initial_list) }, &extract_to_resulting_structure(&1, &2, initial_nodes_depth_map, initial_depth_level, column_name))
 
     check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list)
-
-    tree
+    # tree
   end
 
   defp nodes_by_depth_map([], processed_map, _), do: processed_map
@@ -205,12 +206,27 @@ defmodule EctoMaterializedPath do
     nodes_count = length(nodes_list)
 
     if tree_nodes_count != nodes_count do
-      nodes_list_ids = nodes_list |> Enum.map(&Map.get(&1, :id))
-      tree_node_ids = Enum.map(tree, fn(element) -> get_node_ids_from_tree(element) end) |> List.flatten()
 
-      missing_node_ids = nodes_list_ids -- tree_node_ids
+      all_nodes_list_ids = nodes_list 
+      |> Enum.map(&Map.get(&1, :id))
+      # |> dump("all_nodes_list_ids")
 
-      Logger.error("EctoMaterializedPath: there may be a mising or invalid `path`, resulting in a different count of items (received #{inspect nodes_count} nodes but the arranged tree contains #{inspect tree_nodes_count}) meaning those with ids [#{Enum.join(missing_node_ids, ", ")}] were not arranged")
+      arranged_tree_node_ids = tree 
+      |> Enum.map(&get_node_ids_from_tree/1) 
+      |> List.flatten()
+      # |> dump("arranged_tree_node_ids")
+
+      missing_node_ids = all_nodes_list_ids -- arranged_tree_node_ids
+
+      warn("there seems to be a missing or invalid materialized `path`, resulting in a different count of items (received #{inspect nodes_count} nodes but the arranged tree contains #{inspect tree_nodes_count}) meaning those with ids [#{Enum.join(missing_node_ids, ", ")}] were just appended to the end of the tree")
+
+      tree ++ (
+        nodes_list 
+        |> Enum.filter(& Map.get(&1, :id) in missing_node_ids)
+        |> Enum.map(& {&1, []})
+      ) |> dump("merged tree")
+    else
+      tree
     end
   end
 
