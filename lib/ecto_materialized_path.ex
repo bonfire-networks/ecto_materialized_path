@@ -224,7 +224,8 @@ defmodule EctoMaterializedPath do
         nodes_list 
         |> Enum.filter(& Map.get(&1, :id) in missing_node_ids)
         |> Enum.map(& {&1, []})
-      ) |> dump("merged tree")
+      ) 
+      # |> dump("merged tree")
     else
       tree
     end
