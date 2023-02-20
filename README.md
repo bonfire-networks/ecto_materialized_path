@@ -38,7 +38,8 @@ end
 Write a migration for this functionality
 
 ``` elixir
-defmodule MyApp.AddMaterializedPathToComments do
+defmodule MyApp.AddMaterializedPathToComments  do
+  @moduledoc false
   use Ecto.Migration
 
   def change do
