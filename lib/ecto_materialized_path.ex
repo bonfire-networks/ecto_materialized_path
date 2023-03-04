@@ -177,12 +177,12 @@ defmodule EctoMaterializedPath do
     { tree, tree_nodes_count } = Enum.reduce(initial_list, { [], length(initial_list) }, &extract_to_resulting_structure(&1, &2, initial_nodes_depth_map, initial_depth_level, column_name))
 
     check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list)
-    # tree
   end
 
   defp nodes_by_depth_map([], processed_map, _), do: processed_map
   defp nodes_by_depth_map([node | tail], before_node_processed_map, column_name) do
     path = Map.get(node, column_name, [])
+    |> debug()
     node_depth = depth(node, path)
 
     node_at_depth = Map.get(before_node_processed_map, node_depth, []) ++ [node]
