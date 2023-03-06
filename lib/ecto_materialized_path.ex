@@ -56,6 +56,7 @@ defmodule EctoMaterializedPath do
         EctoMaterializedPath.make_child_of(Ecto.Changeset.change(schema, %{}), parent, unquote(:"#{column_name}"))
       end
 
+      def unquote(:"#{method_namespace}where_depth")(query \\ __MODULE__, depth_params) 
       def unquote(:"#{method_namespace}where_depth")(query = %Ecto.Query{ from: { _, __MODULE__ } }, depth_params) do
         EctoMaterializedPath.where_depth(query, depth_params, unquote(:"#{column_name}"))
       end
@@ -65,6 +66,9 @@ defmodule EctoMaterializedPath do
       def unquote(:"#{method_namespace}where_depth")(schema = %{ __struct__: __MODULE__ }, depth_params) do
         EctoMaterializedPath.where_depth(schema, depth_params, unquote(:"#{column_name}"))
       end
+      def unquote(:"#{method_namespace}where_depth")(schema = __MODULE__, depth_params) do
+        EctoMaterializedPath.where_depth(schema, depth_params, unquote(:"#{column_name}"))
+      end 
 
       def unquote(:"#{method_namespace}arrange")(structs_list) when is_list(structs_list), do: EctoMaterializedPath.arrange(structs_list, unquote(:"#{column_name}"))
 
