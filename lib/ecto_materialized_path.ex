@@ -195,15 +195,19 @@ defmodule EctoMaterializedPath do
     nodes_by_depth_map(tail, after_node_processed_map, column_name)
   end
 
-  defp extract_to_resulting_structure(node, { list, total_count }, nodes_depth_map, depth_level, column_name) do
+  defp extract_to_resulting_structure(%{id: id} = node, { list, total_count }, nodes_depth_map, depth_level, column_name) do
     next_depth_level = depth_level + 1
 
     { node_children, node_children_count } = nodes_depth_map
       |> Map.get(next_depth_level, [])
-      |> Enum.filter(fn(possible_children) -> Map.get(possible_children, column_name, []) |> List.last() == node.id end)
+      |> Enum.filter(fn(possible_children) -> Map.get(possible_children, column_name, []) |> List.last() == id end)
       |> Enum.reduce({ [], total_count }, &extract_to_resulting_structure(&1, &2, nodes_depth_map, next_depth_level, column_name))
 
     { list ++ [{ node, node_children }], length(node_children) + node_children_count }
+  end
+  defp extract_to_resulting_structure(node, { list, total_count }, nodes_depth_map, depth_level, column_name) do
+    warn(node, "invalid path node")
+    { list, 0 }
   end
 
   defp check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list) do
