@@ -39,6 +39,7 @@ defmodule EctoMaterializedPath.Mixfile do
     [
      {:ecto, ">= 2.0.0"},
      {:pointers_ulid, git: "https://github.com/bonfire-networks/pointers_ulid", branch: "main"},
+     {:untangle, git: "https://github.com/bonfire-networks/untangle", branch: "main"},
      {:ex_machina, "~> 1.0.0", only: :test},
      {:ex_doc, ">= 0.0.0", only: :dev},
      {:untangle, ">= 0.0.0"}
