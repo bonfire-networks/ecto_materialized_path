@@ -1,7 +1,8 @@
 defmodule EctoMaterializedPath do
-  import Untangle 
+  use Untangle 
 
   defmacro __using__(opts) do
+
     column_name = Keyword.get(opts, :column_name, "path")
     namespace = Keyword.get(opts, :namespace, nil)
     method_namespace = if is_nil(namespace), do: nil, else: "#{namespace}_"
@@ -186,7 +187,7 @@ defmodule EctoMaterializedPath do
   defp nodes_by_depth_map([], processed_map, _), do: processed_map
   defp nodes_by_depth_map([node | tail], before_node_processed_map, column_name) do
     path = Map.get(node, column_name, [])
-    |> debug()
+    # |> debug()
     node_depth = depth(node, path)
 
     node_at_depth = Map.get(before_node_processed_map, node_depth, []) ++ [node]
