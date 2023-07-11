@@ -173,15 +173,40 @@ defmodule EctoMaterializedPath do
 
   def arrange([], _), do: []
   def arrange(nodes_list, column_name) do
-    nodes_depth_map = nodes_list |> nodes_by_depth_map(%{}, column_name)
+    arrange_nodes(nodes_list, column_name)
+    |> Map.get(:tree)
+  end
 
-    initial_depth_level = nodes_depth_map |> Map.keys() |> Enum.min()
+  def arrange_nodes([], _), do: %{
+      max_depth: 0,
+      node_count: 0,
+      tree: []
+    }
+  def arrange_nodes(nodes_list, column_name) do
+    nodes_depth_map = nodes_list |> nodes_by_depth_map(%{}, column_name)
+    |> debug("nodes_depth_map")
+
+    nodes_depth_keys = nodes_depth_map |> Map.keys() 
+    |> debug("nodes_depth_keys")
+
+    max_depth_level = nodes_depth_keys |> Enum.max()
+    |> debug("max_depth_level")
+
+    initial_depth_level = nodes_depth_keys |> Enum.min()
+    |> debug("initial_depth_level")
+
     initial_list = Map.get(nodes_depth_map, initial_depth_level)
     initial_nodes_depth_map = Map.delete(nodes_depth_map, initial_depth_level)
 
     { tree, tree_nodes_count } = Enum.reduce(initial_list, { [], length(initial_list) }, &extract_to_resulting_structure(&1, &2, initial_nodes_depth_map, initial_depth_level, column_name))
 
-    check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list)
+    debug(tree_nodes_count, "tree_nodes_count")
+
+    %{
+      max_depth: max_depth_level,
+      node_count: tree_nodes_count,
+      tree: check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list)
+    }
   end
 
   defp nodes_by_depth_map([], processed_map, _), do: processed_map
@@ -206,7 +231,7 @@ defmodule EctoMaterializedPath do
 
     { list ++ [{ node, node_children }], length(node_children) + node_children_count }
   end
-  defp extract_to_resulting_structure(node, { list, total_count }, nodes_depth_map, depth_level, column_name) do
+  defp extract_to_resulting_structure(node, { list, _total_count }, _nodes_depth_map, _depth_level, _column_name) do
     warn(node, "invalid path node")
     { list, 0 }
   end
