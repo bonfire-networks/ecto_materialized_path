@@ -71,7 +71,7 @@ defmodule EctoMaterializedPath do
         EctoMaterializedPath.where_depth(schema, depth_params, unquote(:"#{column_name}"))
       end 
 
-      def unquote(:"#{method_namespace}arrange")(structs_list) when is_list(structs_list), do: EctoMaterializedPath.arrange(structs_list, unquote(:"#{column_name}"))
+      def unquote(:"#{method_namespace}arrange")(structs_list, opts \\ []) when is_list(structs_list), do: EctoMaterializedPath.arrange(structs_list, unquote(:"#{column_name}"), opts)
 
     end
   end
@@ -171,41 +171,53 @@ defmodule EctoMaterializedPath do
     changeset |> Ecto.Changeset.change(%{ :"#{column_name}" => new_path })
   end
 
-  def arrange([], _), do: []
-  def arrange(nodes_list, column_name) do
-    arrange_nodes(nodes_list, column_name)
+  def arrange([], _, _opts), do: []
+  def arrange(nodes_list, column_name, opts) do
+    arrange_nodes(nodes_list, column_name, opts)
     |> Map.get(:tree)
   end
 
-  def arrange_nodes([], _), do: %{
+  def arrange_nodes([], _, _opts), do: %{
       max_depth: 0,
       node_count: 0,
       tree: []
     }
-  def arrange_nodes(nodes_list, column_name) do
-    nodes_depth_map = nodes_list |> nodes_by_depth_map(%{}, column_name)
-    |> debug("nodes_depth_map")
+  def arrange_nodes(nodes_list, column_name, opts) do
+
+    opts = Map.new(opts)
+
+    nodes_depth_map = nodes_list 
+    |> nodes_by_depth_map(%{}, column_name)
+    #|> debug("nodes_depth_map")
 
     nodes_depth_keys = nodes_depth_map |> Map.keys() 
-    |> debug("nodes_depth_keys")
+    #|> debug("nodes_depth_keys")
 
     max_depth_level = nodes_depth_keys |> Enum.max()
-    |> debug("max_depth_level")
+    #|> debug("max_depth_level")
 
     initial_depth_level = nodes_depth_keys |> Enum.min()
-    |> debug("initial_depth_level")
+    #|> debug("initial_depth_level")
 
-    initial_list = Map.get(nodes_depth_map, initial_depth_level)
-    initial_nodes_depth_map = Map.delete(nodes_depth_map, initial_depth_level)
+    initial_nodes_list = Map.get(nodes_depth_map, initial_depth_level)
+    next_nodes_depth_map = Map.delete(nodes_depth_map, initial_depth_level)
 
-    { tree, tree_nodes_count } = Enum.reduce(initial_list, { [], length(initial_list) }, &extract_to_resulting_structure(&1, &2, initial_nodes_depth_map, initial_depth_level, column_name))
+    { _, tree, tree_nodes_count } = initial_nodes_list
+    |> Enum.reduce( 
+      { nodes_sorter(initial_nodes_list, opts), [], length(initial_nodes_list) }, 
+      &extract_to_resulting_structure(&1, &2, next_nodes_depth_map, initial_depth_level, column_name, opts)
+    )
+    |> debug("extracted_to_resulting_structure")
 
-    debug(tree_nodes_count, "tree_nodes_count")
+    #debug(tree_nodes_count, "tree_nodes_count")
 
     %{
       max_depth: max_depth_level,
       node_count: tree_nodes_count,
-      tree: check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list)
+      tree: 
+        tree
+        |> nodes_sort(opts)
+        |> check_nodes_arrangement_correctness(tree_nodes_count, nodes_list)
     }
   end
 
@@ -221,19 +233,39 @@ defmodule EctoMaterializedPath do
     nodes_by_depth_map(tail, after_node_processed_map, column_name)
   end
 
-  defp extract_to_resulting_structure(%{id: id} = node, { list, total_count }, nodes_depth_map, depth_level, column_name) do
+  defp extract_to_resulting_structure(%{id: id} = node, { parent_node_sorter, list, total_count }, nodes_depth_map, depth_level, column_name, opts) do
     next_depth_level = depth_level + 1
 
-    { node_children, node_children_count } = nodes_depth_map
+    next_nodes_list = nodes_depth_map
       |> Map.get(next_depth_level, [])
-      |> Enum.filter(fn(possible_children) -> Map.get(possible_children, column_name, []) |> List.last() == id end)
-      |> Enum.reduce({ [], total_count }, &extract_to_resulting_structure(&1, &2, nodes_depth_map, next_depth_level, column_name))
+      |> Enum.filter(fn(possible_child) -> 
+        possible_child
+        |> Map.get(column_name, []) 
+        |> List.last() == id 
+      end)
 
-    { list ++ [{ node, node_children }], length(node_children) + node_children_count }
+      current_node_sorter = nodes_sorter(next_nodes_list, opts)
+      
+      { child_node_sorter, node_children, node_children_count } = next_nodes_list
+      |> Enum.reduce(
+        { nil, [], total_count }, 
+        &extract_to_resulting_structure(&1, &2, nodes_depth_map, next_depth_level, column_name, opts)
+      )
+
+    node_sorter = sort_node_sorter([parent_node_sorter, current_node_sorter, child_node_sorter], opts)
+
+    { 
+      node_sorter, 
+      list ++ [{ 
+        node_put_sorter(node, node_sorter, opts), 
+        nodes_sort(node_children, opts) 
+      }], 
+      length(node_children) + node_children_count 
+      }
   end
-  defp extract_to_resulting_structure(node, { list, _total_count }, _nodes_depth_map, _depth_level, _column_name) do
+  defp extract_to_resulting_structure(node, { _, list, _total_count }, _nodes_depth_map, _depth_level, _column_name, _opts) do
     warn(node, "invalid path node")
-    { list, 0 }
+    { nil, list, 0 }
   end
 
   defp check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list) do
@@ -269,4 +301,42 @@ defmodule EctoMaterializedPath do
   defp get_node_ids_from_tree({ node, list }) do
     [node.id, Enum.map(list, &get_node_ids_from_tree(&1))]
   end
+
+
+  #### Optional functions to sort the branches
+  # requires opts: `sort_order` (desc or asc), `struct_sort_key` (a virtual field on the struct that contains the path to store the data to sort by), and `sort_by_key` (defaults to :id)
+  #### TODO: put in a behaviour with a no-op implementation by default?
+  
+  defp nodes_sorter(nodes, %{sort_order: :desc} = opts) do
+    sort_by_key = Map.get(opts, :sort_by_key, :id)
+nodes
+  |> Enum.map(fn 
+      %{^sort_by_key => id} -> id 
+      _ -> nil
+      end)
+      |> Enum.max(fn -> nil end)
+  end
+  defp nodes_sorter(nodes, %{sort_order: :asc, struct_sort_key: _} = opts) do
+  sort_by_key = Map.get(opts, :sort_by_key, :id)
+  nodes
+  |> Enum.map(fn 
+      %{^sort_by_key => id} -> id 
+      _ -> nil
+      end)
+      |> Enum.min(fn -> nil end)
+  end
+  defp nodes_sorter(nodes, _opts) do
+    nodes
+  end
+
+  defp sort_node_sorter(list, %{sort_order: :desc, struct_sort_key: _} = opts), do: Enum.max(list)
+  defp sort_node_sorter(list, %{sort_order: :asc, struct_sort_key: _} = opts), do: Enum.min(list)
+  defp sort_node_sorter(list, opts), do: list
+
+  defp node_put_sorter(node, node_sorter, %{struct_sort_key: struct_sort_key} = _opts), do: Map.put(node, struct_sort_key, node_sorter)
+  defp node_put_sorter(node, _node_sorter, _opts), do: node
+
+  defp nodes_sort(nodes, %{sort_order: sort_order, struct_sort_key: struct_sort_key} = _opts), do: Enum.sort_by(nodes, &Map.get(elem(&1, 0), :path_sorter, nil), sort_order) 
+  defp nodes_sort(nodes, opts), do: nodes
+
 end
