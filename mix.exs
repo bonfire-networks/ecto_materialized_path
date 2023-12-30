@@ -33,14 +33,13 @@ defmodule EctoMaterializedPath.Mixfile do
 
   def app_list(:test), do: app_list() ++ [:ex_machina]
   def app_list(_), do: app_list()
-  def app_list, do: [:logger, :pointers_ulid, :ecto, :untangle]
+  def app_list, do: [:logger, :needle_ulid, :ecto, :untangle]
 
   defp deps do
     [
      {:ecto, ">= 3.4.0"},
-     {:pointers_ulid, git: "https://github.com/bonfire-networks/pointers_ulid", branch: "main"},
-     {:untangle, git: "https://github.com/bonfire-networks/untangle", branch: "main"},
-    #  {:untangle, ">= 0.0.0"},
+     {:needle_ulid, ">= 0.3"},
+     {:untangle, ">= 0.3"},
      {:ex_machina, "~> 2.7.0", only: :test},
      {:ex_doc, ">= 0.0.0", only: :dev}
     ]
