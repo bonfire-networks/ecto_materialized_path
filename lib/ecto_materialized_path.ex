@@ -216,7 +216,7 @@ defmodule EctoMaterializedPath do
       node_count: tree_nodes_count,
       tree: 
         tree
-        |> nodes_sort(opts)
+        |> nodes_finally_sort(opts)
         |> check_nodes_arrangement_correctness(tree_nodes_count, nodes_list)
     }
   end
@@ -258,7 +258,7 @@ defmodule EctoMaterializedPath do
       node_sorter, 
       list ++ [{ 
         node_put_sorter(node, node_sorter, opts), 
-        nodes_sort(node_children, opts) 
+        nodes_finally_sort(node_children, opts) 
       }], 
       length(node_children) + node_children_count 
       }
@@ -310,7 +310,7 @@ defmodule EctoMaterializedPath do
   # - `sort_by_key_fun`, or `sort_by_key` (defaults to :inserted_at) and `sort_by_key_secondary` (optional, defaults to :id)
   #### TODO: put in a behaviour with a no-op implementation by default?
 
-  defp nodes_sorter(nodes, %{sort_order: :desc} = opts) do
+  defp nodes_sorter(nodes, %{sort_order: :desc, struct_sort_key: _} = opts) do
     nodes_sorter_map(nodes, opts)
     |> Enum.max(fn -> nil end)
   end
@@ -319,6 +319,7 @@ defmodule EctoMaterializedPath do
     |> Enum.min(fn -> nil end)
   end
   defp nodes_sorter(nodes, _opts) do
+    debug("none")
     nodes
   end
 
@@ -327,36 +328,38 @@ defmodule EctoMaterializedPath do
     fun.(nodes, opts)
   end
 
-  defp nodes_sorter_map(nodes, %{sort_by_key: sort_by_key, sort_by_key_secondary: sort_by_key_secondary} = _opts) do
+  defp nodes_sorter_map(nodes, %{sort_by_key: sort_by_key, sort_by_key_secondary: sort_by_key_secondary, sort_order: sort_order} = _opts) do
     nodes
     |> Enum.map(fn 
       %{^sort_by_key => primary, ^sort_by_key_secondary => secondary} -> {primary, secondary} 
-      %{^sort_by_key => primary} -> {primary, nil} 
+      %{^sort_by_key => primary} -> {primary, !sort_order} 
       %{^sort_by_key_secondary => secondary} -> secondary 
-      _ -> nil
+      _ -> !sort_order
     end)
+    |> debug()
   end
 
-  defp nodes_sorter_map(nodes, %{sort_by_key: sort_by_key} = _opts) do
+  defp nodes_sorter_map(nodes, %{sort_by_key: sort_by_key, sort_order: sort_order} = _opts) do
     nodes
     |> Enum.map(fn 
       %{^sort_by_key => primary} -> primary
-      _ -> nil
+      _ -> !sort_order
     end)
+    |> debug()
   end
   defp nodes_sorter_map(nodes, _opts) do
     debug("no sort")
     nodes
   end
 
-  defp sort_node_sorter(list, %{sort_order: :desc, struct_sort_key: _} = opts), do: Enum.max(list)
-  defp sort_node_sorter(list, %{sort_order: :asc, struct_sort_key: _} = opts), do: Enum.min(list)
+  defp sort_node_sorter(list, %{sort_order: :desc, struct_sort_key: _} = opts), do: Enum.max(list, fn -> nil end)
+  defp sort_node_sorter(list, %{sort_order: :asc, struct_sort_key: _} = opts), do: Enum.min(list, fn -> nil end)
   defp sort_node_sorter(list, opts), do: list
 
   defp node_put_sorter(node, node_sorter, %{struct_sort_key: struct_sort_key} = _opts), do: Map.put(node, struct_sort_key, node_sorter)
   defp node_put_sorter(node, _node_sorter, _opts), do: node
 
-  defp nodes_sort(nodes, %{sort_order: sort_order, struct_sort_key: struct_sort_key} = _opts), do: Enum.sort_by(nodes, &Map.get(elem(&1, 0), struct_sort_key, nil), sort_order) 
-  defp nodes_sort(nodes, opts), do: nodes
+  defp nodes_finally_sort(nodes, %{sort_order: sort_order, struct_sort_key: struct_sort_key} = _opts), do: Enum.sort_by(nodes, &Map.get(elem(&1, 0), struct_sort_key, nil), sort_order) 
+  defp nodes_finally_sort(nodes, opts), do: nodes
 
 end
