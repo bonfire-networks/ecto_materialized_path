@@ -38,7 +38,7 @@ defmodule EctoMaterializedPath.Mixfile do
   defp deps do
     [
      {:ecto, ">= 3.4.0"},
-     {:needle_ulid, "~> 0.3"},
+     {:needle_uid, "~> 0.1"},
      {:untangle, "~> 0.3"},
      {:ex_machina, "~> 2.7.0", only: :test},
      {:ex_doc, ">= 0.0.0", only: :dev}
