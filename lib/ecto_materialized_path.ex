@@ -352,14 +352,14 @@ defmodule EctoMaterializedPath do
     nodes
   end
 
-  defp sort_node_sorter(list, %{sort_order: :desc, struct_sort_key: _} = opts), do: Enum.max(list, fn -> nil end)
-  defp sort_node_sorter(list, %{sort_order: :asc, struct_sort_key: _} = opts), do: Enum.min(list, fn -> nil end)
-  defp sort_node_sorter(list, opts), do: list
+  defp sort_node_sorter(list, %{sort_order: :desc, struct_sort_key: _} = _opts), do: Enum.max(list, fn -> nil end)
+  defp sort_node_sorter(list, %{sort_order: :asc, struct_sort_key: _} = _opts), do: Enum.min(list, fn -> nil end)
+  defp sort_node_sorter(list, _opts), do: list
 
   defp node_put_sorter(node, node_sorter, %{struct_sort_key: struct_sort_key} = _opts), do: Map.put(node, struct_sort_key, node_sorter)
   defp node_put_sorter(node, _node_sorter, _opts), do: node
 
   defp nodes_finally_sort(nodes, %{sort_order: sort_order, struct_sort_key: struct_sort_key} = _opts), do: Enum.sort_by(nodes, &Map.get(elem(&1, 0), struct_sort_key, nil), sort_order) 
-  defp nodes_finally_sort(nodes, opts), do: nodes
+  defp nodes_finally_sort(nodes, _opts), do: nodes
 
 end
