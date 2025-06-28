@@ -1,4 +1,6 @@
 defmodule EctoMaterializedPath do
+  @moduledoc "./README.md" |> File.stream!() |> Enum.drop(1) |> Enum.join()
+
   use Untangle 
 
   defmacro __using__(opts) do
