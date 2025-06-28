@@ -133,11 +133,20 @@ defmodule EctoMaterializedPath do
   def depth(_, path) when is_list(path), do: length(path)
 
   def where_depth(query = %Ecto.Query{}, depth_options, column_name) when is_list(depth_options) do
-    do_where_depth(query, depth_options, column_name)
+       {include_path_ids, depth_options} = Keyword.pop(depth_options, :include_path_ids, []) 
+
+    base_query = do_where_depth(query, depth_options, column_name)
+
+    if not is_nil(include_path_ids) and include_path_ids != [] do
+      Ecto.Query.from q in base_query,
+        or_where: q.id in ^List.wrap(include_path_ids)
+    else
+      base_query
+    end
   end
-  def where_depth(module, depth_options, column_name) when is_list(depth_options) do
+  def where_depth(module, depth_options, column_name) when is_atom(module) and is_list(depth_options) do
     Ecto.Query.from(q in module)
-    |> do_where_depth(depth_options, column_name)
+    |> where_depth(depth_options, column_name)
   end
 
   defp do_where_depth(query, [is_bigger_than: ibt], column_name) when is_integer(ibt) and ibt > 0 do
