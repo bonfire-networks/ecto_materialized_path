@@ -39,8 +39,8 @@ defmodule EctoMaterializedPath.Mixfile do
     [
      {:ecto, ">= 3.4.0"},
      {:needle_uid, 
-        #"~> 0.0.1",
-        git: "https://github.com/bonfire-networks/needle_uid",
+        "~> 0.0.2",
+        # git: "https://github.com/bonfire-networks/needle_uid",
         optional: true
       },
      {:untangle, "~> 0.3"},
