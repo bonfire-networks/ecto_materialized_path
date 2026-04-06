@@ -19,6 +19,11 @@ defmodule EctoMaterializedPath.Integers do
 
   def info(value), do: { :ok, value }
 
+  def dump(list) when is_list(list), do: {:ok, list}
+  def dump(_), do: :error
+
+  def equal?(a, b), do: a == b
+
   def load(value), do: { :ok, value }
 
   def type, do: EctoMaterializedPath.Integers

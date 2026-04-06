@@ -197,8 +197,9 @@ defmodule EctoMaterializedPath do
 
     opts = Map.new(opts)
 
-    nodes_depth_map = nodes_list 
+    nodes_depth_map = nodes_list
     |> nodes_by_depth_map(%{}, column_name)
+    |> Map.new(fn {depth, nodes} -> {depth, Enum.reverse(nodes)} end)
     #|> debug("nodes_depth_map")
 
     nodes_depth_keys = nodes_depth_map |> Map.keys() 
@@ -238,7 +239,7 @@ defmodule EctoMaterializedPath do
     # |> debug()
     node_depth = depth(node, path)
 
-    node_at_depth = Map.get(before_node_processed_map, node_depth, []) ++ [node]
+    node_at_depth = [node | Map.get(before_node_processed_map, node_depth, [])]
     after_node_processed_map = Map.put(before_node_processed_map, node_depth, node_at_depth)
 
     nodes_by_depth_map(tail, after_node_processed_map, column_name)

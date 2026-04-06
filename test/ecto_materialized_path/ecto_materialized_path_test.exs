@@ -371,7 +371,7 @@ defmodule EctoMaterializedPathTest do
       assert Comment.arrange([]) == []
     end
 
-    test "raises an exception when node can't arranged" do
+    test "appends nodes that can't be arranged to the end of the tree" do
       comment_1 = %Comment{ id: 1 }
         comment_3 = %Comment{ id: 3, path: [1] }
       # parent is missing
@@ -379,9 +379,9 @@ defmodule EctoMaterializedPathTest do
 
       list = [comment_1, comment_2, comment_3]
 
-      assert_raise ArgumentError, "nodes with ids [2] can't be arranged", fn ->
-        Comment.arrange(list)
-      end
+      result = Comment.arrange(list)
+      ids = Enum.map(result, fn {node, _} -> node.id end)
+      assert 2 in ids
     end
   end
 
