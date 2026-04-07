@@ -75,6 +75,11 @@ defmodule EctoMaterializedPath do
 
       def unquote(:"#{method_namespace}arrange")(structs_list, opts \\ []) when is_list(structs_list), do: EctoMaterializedPath.arrange(structs_list, unquote(:"#{column_name}"), opts)
 
+      def unquote(:"#{method_namespace}where_root_in")(query \\ __MODULE__, root_ids)
+      def unquote(:"#{method_namespace}where_root_in")(query, root_ids) do
+        EctoMaterializedPath.where_root_in(query, root_ids, unquote(:"#{column_name}"))
+      end
+
     end
   end
 
@@ -168,6 +173,28 @@ defmodule EctoMaterializedPath do
   end
   defp do_where_depth(_, _, _) do
     raise ArgumentError, "invalid arguments"
+  end
+
+  @doc """
+  Filters a query to only include nodes that are deeper descendants of nodes in `root_ids`.
+
+  In the materialized path schema, depth-1 replies have `path = [thread_id]`.
+  Their children (depth=2) have `path = [thread_id, root_reply_id, ...]`, so `path[2]`
+  (1-indexed) is the root reply ID.
+
+  Used to load complete subtrees for a paginated set of root replies without fetching
+  the entire thread. Does NOT include the root reply nodes themselves (their own path does
+  not contain their own ID); combine with the paginated root result to get the full set.
+  """
+  def where_root_in(module, root_ids, column_name) when is_atom(module) and is_list(root_ids) do
+    Ecto.Query.from(q in module)
+    |> where_root_in(root_ids, column_name)
+  end
+
+  def where_root_in(query = %Ecto.Query{}, root_ids, column_name) when is_list(root_ids) do
+    Ecto.Query.from(q in query,
+      where: fragment("(?)[2]", field(q, ^column_name)) in ^root_ids
+    )
   end
 
   def build_child(schema = %{ __struct__: struct, id: id }, column_name) when (is_integer(id) or is_binary(id)) and is_atom(column_name) do
