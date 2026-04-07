@@ -247,6 +247,7 @@ defmodule EctoMaterializedPath do
       if is_integer(cap) do
         Enum.reduce_while(
           initial_nodes_list,
+          {nodes_sorter(initial_nodes_list, opts), [], 0},
           fn node, {sorter, list, cumulative} ->
             {node_sorter, new_list, _raw} =
               extract_to_resulting_structure(
