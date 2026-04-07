@@ -192,9 +192,24 @@ defmodule EctoMaterializedPath do
   end
 
   def where_root_in(query = %Ecto.Query{}, root_ids, column_name) when is_list(root_ids) do
-    Ecto.Query.from(q in query,
-      where: fragment("(?)[2]", field(q, ^column_name)) in ^root_ids
-    )
+    case root_ids do
+      [id | _] when is_integer(id) ->
+        # Integer-keyed schema: compare directly
+        Ecto.Query.from(q in query,
+          where: fragment("(?)[2] = ANY(?)", field(q, ^column_name), type(^root_ids, {:array, :integer}))
+        )
+
+      _ ->
+        # ULID/UUID-keyed schema: convert to UUID-format strings for Ecto.UUID type casting
+        uuid_strings =
+          root_ids
+          |> Enum.map(&EctoMaterializedPath.UIDs.dump_one/1)
+          |> Enum.reject(&is_nil/1)
+
+        Ecto.Query.from(q in query,
+          where: fragment("(?)[2] = ANY(?)", field(q, ^column_name), type(^uuid_strings, {:array, Ecto.UUID}))
+        )
+    end
   end
 
   def build_child(schema = %{ __struct__: struct, id: id }, column_name) when (is_integer(id) or is_binary(id)) and is_atom(column_name) do
