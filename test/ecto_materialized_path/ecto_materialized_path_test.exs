@@ -385,6 +385,73 @@ defmodule EctoMaterializedPathTest do
     end
   end
 
+  describe "arrange with cap" do
+    setup do
+      comment_1 = %Comment{id: 1}
+      comment_3 = %Comment{id: 3, path: [1]}
+      comment_8 = %Comment{id: 8, path: [1, 3]}
+      comment_9 = %Comment{id: 9, path: [1, 3, 8]}
+      comment_4 = %Comment{id: 4, path: [1]}
+      comment_2 = %Comment{id: 2}
+      comment_6 = %Comment{id: 6, path: [2]}
+      comment_7 = %Comment{id: 7, path: [2, 6]}
+
+      list = [comment_1, comment_2, comment_3, comment_4, comment_8, comment_9, comment_6, comment_7]
+      %{list: list, c1: comment_1, c2: comment_2, c3: comment_3, c4: comment_4, c6: comment_6, c7: comment_7, c8: comment_8, c9: comment_9}
+    end
+
+    test "returns full tree when cap is not set", %{list: list} do
+      tree = Comment.arrange(list)
+      assert length(tree) == 2
+    end
+
+    test "returns full tree when cap is larger than total nodes", %{list: list} do
+      tree = Comment.arrange(list, cap: 100)
+      assert length(tree) == 2
+    end
+
+    test "includes oversized first subtree but excludes subsequent small subtree when cumulative exceeds cap", %{c1: c1, c3: c3, c8: c8, c9: c9, c4: c4} do
+      # c2 here has no children (size=1), cap=2: c1 subtree (5) > cap → include, then 5+1 > 2 → exclude c2
+      c2_alone = %Comment{id: 2}
+      list = [c1, c3, c8, c9, c4, c2_alone]
+      tree = Comment.arrange(list, cap: 2)
+      ids = Enum.map(tree, fn {node, _} -> node.id end)
+      assert c1.id in ids
+      refute c2_alone.id in ids
+    end
+
+    test "drops second subtree when cumulative count would exceed cap", %{list: list, c1: c1, c2: c2} do
+      # c1 subtree = 5 nodes, c2 subtree = 3 nodes; cap=6 → c1 fits, c2 would push to 8 > 6 → drop c2
+      tree = Comment.arrange(list, cap: 6)
+      ids = Enum.map(tree, fn {node, _} -> node.id end)
+      assert c1.id in ids
+      refute c2.id in ids
+    end
+
+    test "includes both subtrees when cap is large enough", %{list: list, c1: c1, c2: c2} do
+      # c1=5 nodes, c2=3 nodes, total=8; cap=8 → both fit
+      tree = Comment.arrange(list, cap: 8)
+      ids = Enum.map(tree, fn {node, _} -> node.id end)
+      assert c1.id in ids
+      assert c2.id in ids
+    end
+
+    test "includes all oversized subtrees when every subtree exceeds cap", %{list: list, c1: c1, c2: c2} do
+      # c1=5 nodes, c2=3 nodes, cap=1 — both exceed cap, both get included
+      tree = Comment.arrange(list, cap: 1)
+      ids = Enum.map(tree, fn {node, _} -> node.id end)
+      assert c1.id in ids
+      assert c2.id in ids
+    end
+
+    test "does not append orphans to capped result", %{list: list} do
+      # When cap is active, check_nodes_arrangement_correctness is skipped
+      tree = Comment.arrange(list, cap: 6)
+      # Should not have more than the capped subtrees
+      assert length(tree) == 1
+    end
+  end
+
   describe "column_name" do
     defmodule AnotherComment do
       use Ecto.Schema

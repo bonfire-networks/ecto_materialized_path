@@ -241,24 +241,69 @@ defmodule EctoMaterializedPath do
     initial_nodes_list = Map.get(nodes_depth_map, initial_depth_level)
     next_nodes_depth_map = Map.delete(nodes_depth_map, initial_depth_level)
 
-    { _, tree, tree_nodes_count } = initial_nodes_list
-    |> Enum.reduce( 
-      { nodes_sorter(initial_nodes_list, opts), [], length(initial_nodes_list) }, 
-      &extract_to_resulting_structure(&1, &2, next_nodes_depth_map, initial_depth_level, column_name, opts)
-    )
-    # |> debug("extracted_to_resulting_structure")
+    cap = Map.get(opts, :cap, nil)
 
-    #debug(tree_nodes_count, "tree_nodes_count")
+    {_, tree, tree_nodes_count} =
+      if is_integer(cap) do
+        Enum.reduce_while(
+          initial_nodes_list,
+          fn node, {sorter, list, cumulative} ->
+            {node_sorter, new_list, _raw} =
+              extract_to_resulting_structure(
+                node,
+                {sorter, list, length(initial_nodes_list)},
+                next_nodes_depth_map,
+                initial_depth_level,
+                column_name,
+                opts
+              )
+
+            subtree = List.last(new_list)
+            subtree_size = count_tree_nodes(subtree)
+
+            if subtree_size > cap or cumulative + subtree_size <= cap do
+              {:cont, {node_sorter, new_list, cumulative + subtree_size}}
+            else
+              {:halt, {sorter, list, cumulative}}
+            end
+          end
+        )
+      else
+        initial_nodes_list
+        |> Enum.reduce(
+          {nodes_sorter(initial_nodes_list, opts), [], length(initial_nodes_list)},
+          &extract_to_resulting_structure(
+            &1,
+            &2,
+            next_nodes_depth_map,
+            initial_depth_level,
+            column_name,
+            opts
+          )
+        )
+      end
+
+    # |> debug("extracted_to_resulting_structure")
+    # debug(tree_nodes_count, "tree_nodes_count")
+
+    tree =
+      tree
+      |> nodes_finally_sort(opts)
+
+    tree =
+      if is_nil(cap),
+        do: check_nodes_arrangement_correctness(tree, tree_nodes_count, nodes_list),
+        else: tree
 
     %{
       max_depth: max_depth_level,
       node_count: tree_nodes_count,
-      tree: 
-        tree
-        |> nodes_finally_sort(opts)
-        |> check_nodes_arrangement_correctness(tree_nodes_count, nodes_list)
+      tree: tree
     }
   end
+
+  defp count_tree_nodes({_node, []}), do: 1
+  defp count_tree_nodes({_node, children}), do: 1 + Enum.sum(Enum.map(children, &count_tree_nodes/1))
 
   defp nodes_by_depth_map([], processed_map, _), do: processed_map
   defp nodes_by_depth_map([node | tail], before_node_processed_map, column_name) do
