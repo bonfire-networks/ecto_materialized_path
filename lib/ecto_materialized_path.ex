@@ -459,7 +459,18 @@ defmodule EctoMaterializedPath do
   defp node_put_sorter(node, node_sorter, %{struct_sort_key: struct_sort_key} = _opts), do: Map.put(node, struct_sort_key, node_sorter)
   defp node_put_sorter(node, _node_sorter, _opts), do: node
 
-  defp nodes_finally_sort(nodes, %{sort_order: sort_order, struct_sort_key: struct_sort_key} = _opts), do: Enum.sort_by(nodes, &Map.get(elem(&1, 0), struct_sort_key, nil), sort_order) 
+  defp nodes_finally_sort(nodes, %{sort_order: sort_order, sort_aggregator: :sqrt_sum, sort_by_key_fun: fun} = opts) do
+    Enum.sort_by(nodes, fn subtree ->
+      all_nodes = collect_subtree_nodes(subtree)
+      values = fun.(all_nodes, opts) |> Enum.reject(&is_nil/1)
+      n = length(values)
+      if n > 0, do: Enum.sum(values) / :math.sqrt(n), else: 0.0
+    end, sort_order)
+  end
+  defp nodes_finally_sort(nodes, %{sort_order: sort_order, struct_sort_key: struct_sort_key} = _opts), do: Enum.sort_by(nodes, &Map.get(elem(&1, 0), struct_sort_key, nil), sort_order)
   defp nodes_finally_sort(nodes, _opts), do: nodes
+
+  defp collect_subtree_nodes({node, children}),
+    do: [node | Enum.flat_map(children, &collect_subtree_nodes/1)]
 
 end
