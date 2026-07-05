@@ -43,7 +43,7 @@ defmodule EctoMaterializedPath.Mixfile do
         # git: "https://github.com/bonfire-networks/needle_uid",
         optional: true
       },
-     {:untangle, "~> 0.3"},
+     {:untangle, "~> 0.5"},
      {:ex_machina, "~> 2.7.0", only: :test},
      {:ex_doc, ">= 0.0.0", only: :dev}
     ]
