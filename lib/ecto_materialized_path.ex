@@ -142,18 +142,39 @@ defmodule EctoMaterializedPath do
   def where_depth(query = %Ecto.Query{}, depth_options, column_name) when is_list(depth_options) do
        {include_path_ids, depth_options} = Keyword.pop(depth_options, :include_path_ids, []) 
 
-    base_query = do_where_depth(query, depth_options, column_name)
-
     if not is_nil(include_path_ids) and include_path_ids != [] do
-      Ecto.Query.from q in base_query,
-        or_where: q.id in ^List.wrap(include_path_ids)
+      # one condition ANDed with the rest of the query, so the extra ids only widen the depth filter (a bare `or_where` would widen every filter before it)
+      depth_condition = depth_condition(depth_options, column_name)
+      ids = List.wrap(include_path_ids)
+
+      Ecto.Query.from q in query,
+        where: ^Ecto.Query.dynamic([q], ^depth_condition or q.id in ^ids)
     else
-      base_query
+      do_where_depth(query, depth_options, column_name)
     end
   end
   def where_depth(module, depth_options, column_name) when is_atom(module) and is_list(depth_options) do
     Ecto.Query.from(q in module)
     |> where_depth(depth_options, column_name)
+  end
+
+  defp depth_condition([is_bigger_than: ibt], column_name) when is_integer(ibt) and ibt > 0 do
+    Ecto.Query.dynamic([q], fragment("CARDINALITY(?) > ?", field(q, ^column_name), ^ibt))
+  end
+  defp depth_condition([is_bigger_than_or_equal_to: ibtoet], column_name) when is_integer(ibtoet) and ibtoet >= 0 do
+    Ecto.Query.dynamic([q], fragment("CARDINALITY(?) >= ?", field(q, ^column_name), ^ibtoet))
+  end
+  defp depth_condition([is_equal_to: iet], column_name) when is_integer(iet) and iet > 0 do
+    Ecto.Query.dynamic([q], fragment("CARDINALITY(?) = ?", field(q, ^column_name), ^iet))
+  end
+  defp depth_condition([is_smaller_than_or_equal_to: istoet], column_name) when is_integer(istoet) and istoet >= 0 do
+    Ecto.Query.dynamic([q], fragment("CARDINALITY(?) <= ?", field(q, ^column_name), ^istoet))
+  end
+  defp depth_condition([is_smaller_than: ist], column_name) when is_integer(ist) and ist > 0 do
+    Ecto.Query.dynamic([q], fragment("CARDINALITY(?) < ?", field(q, ^column_name), ^ist))
+  end
+  defp depth_condition(_, _) do
+    raise ArgumentError, "invalid arguments"
   end
 
   defp do_where_depth(query, [is_bigger_than: ibt], column_name) when is_integer(ibt) and ibt > 0 do
